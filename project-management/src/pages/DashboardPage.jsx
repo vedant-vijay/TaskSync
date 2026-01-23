@@ -31,6 +31,11 @@ export const DashboardPage = () => {
   const handleCreateSuccess = () => {
     console.log('✅ Project created, refetching...');
     refetch();
+    
+    // ✅ ADD THIS: Force page reload to refresh WebSocket auth
+    setTimeout(() => {
+      window.location.reload();
+    }, 500);
   };
 
   // ✅ Show loading for auth

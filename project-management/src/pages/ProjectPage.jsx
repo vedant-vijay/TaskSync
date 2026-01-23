@@ -51,13 +51,17 @@ export const ProjectPage = () => {
 
         subscribe(WS_EVENTS.USER_CONNECTED, (payload) => {
           console.log('👤 User connected:', payload.user);
+          console.log('📊 Current online users before update:', onlineUsers);
           setOnlineUsers(prev => {
             const userId = payload.user._id || payload.user.id;
             const filtered = prev.filter(u => (u._id || u.id) !== userId);
-            return [...filtered, payload.user];
+            const updated = [...filtered, payload.user];
+            console.log('📊 Updated online users:', updated);
+            return updated;
           });
           addToast(`${payload.user.name} joined the project`, 'info');
         }),
+
 
         subscribe(WS_EVENTS.USER_DISCONNECTED, (payload) => {
           console.log('👋 User disconnected:', payload.userId);
@@ -82,7 +86,15 @@ export const ProjectPage = () => {
           console.log('👥 Task assigned:', payload);
           setTasks(prev => prev.map(t => {
             const taskId = t._id || t.id;
-            return taskId === payload.taskId ? { ...t, assignedTo: payload.assignedTo } : t;
+            if (taskId === payload.taskId) {
+              return { 
+                ...t, 
+                assignedTo: payload.assignedTo,
+                // If assignedTo is just an ID, keep it; if it's an object, use it
+                assignedToUser: payload.assignedToUser || payload.assignedTo 
+              };
+            }
+            return t;
           }));
         }),
 
@@ -90,9 +102,14 @@ export const ProjectPage = () => {
           console.log('💬 Comment added:', payload);
           setTasks(prev => prev.map(t => {
             const taskId = t._id || t.id;
-            return taskId === payload.taskId
-              ? { ...t, commentCount: (t.commentCount || 0) + 1 }
-              : t;
+            if (taskId === payload.taskId) {
+              return { 
+                ...t, 
+                comments: [...(t.comments || []), payload.comment],
+                commentCount: (t.commentCount || 0) + 1 
+              };
+            }
+            return t;
           }));
         }),
 
@@ -134,10 +151,26 @@ export const ProjectPage = () => {
           }));
         }),
 
-        subscribe(WS_EVENTS.ERROR, (payload) => {
-          console.error('❌ WebSocket error:', payload);
-          addToast(payload.message || 'An error occurred', 'error');
-        })
+      subscribe(WS_EVENTS.ERROR, (payload) => {
+        console.error('❌ WebSocket error:', payload);
+        
+        // ✅ Check if it's a "not a member" error
+        if (payload.message?.toLowerCase().includes('not a member')) {
+          console.log('🔄 Not a member error detected, will retry after reconnecting...');
+          
+          // Show a toast
+          addToast('Refreshing connection...', 'info');
+          
+          // ✅ Force WebSocket reconnection by reloading the page
+          setTimeout(() => {
+            window.location.reload();
+          }, 1500);
+          
+          return;
+        }
+        
+        addToast(payload.message || 'An error occurred', 'error');
+      })
       ];
 
       return () => {
