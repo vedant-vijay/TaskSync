@@ -151,10 +151,26 @@ export const ProjectPage = () => {
           }));
         }),
 
-        subscribe(WS_EVENTS.ERROR, (payload) => {
-          console.error('❌ WebSocket error:', payload);
-          addToast(payload.message || 'An error occurred', 'error');
-        })
+      subscribe(WS_EVENTS.ERROR, (payload) => {
+        console.error('❌ WebSocket error:', payload);
+        
+        // ✅ Check if it's a "not a member" error
+        if (payload.message?.toLowerCase().includes('not a member')) {
+          console.log('🔄 Not a member error detected, will retry after reconnecting...');
+          
+          // Show a toast
+          addToast('Refreshing connection...', 'info');
+          
+          // ✅ Force WebSocket reconnection by reloading the page
+          setTimeout(() => {
+            window.location.reload();
+          }, 1500);
+          
+          return;
+        }
+        
+        addToast(payload.message || 'An error occurred', 'error');
+      })
       ];
 
       return () => {
