@@ -1,26 +1,20 @@
 const Project = require('../models/Project');
 const User = require('../models/User');
 
-/**
- * Create a new project
- */
 async function createProject(req, res) {
   try {
     const { name, description } = req.body;
 
-    // Validation
     if (!name) {
       return res.status(400).json({ error: 'Project name is required' });
     }
 
-    // Only LEADERs can create projects
     if (req.user.role !== 'LEADER') {
       return res.status(403).json({ 
         error: 'Only users with LEADER role can create projects' 
       });
     }
 
-    // Create project
     const project = await Project.create({
       name,
       description,
@@ -43,9 +37,6 @@ async function createProject(req, res) {
   }
 }
 
-/**
- * Get all projects for current user
- */
 async function getUserProjects(req, res) {
   try {
     const projects = await Project.findByUserId(req.userId);
@@ -68,14 +59,10 @@ async function getUserProjects(req, res) {
   }
 }
 
-/**
- * Get project by ID
- */
 async function getProjectById(req, res) {
   try {
     const { id } = req.params;
 
-    // Check if user is a member
     const isMember = await Project.isMember(id, req.userId);
     
     if (!isMember) {
@@ -109,20 +96,15 @@ async function getProjectById(req, res) {
   }
 }
 
-/**
- * Add member to project
- */
 async function addMember(req, res) {
   try {
     const { id } = req.params;
     const { userId, role } = req.body;
 
-    // Validation
     if (!userId) {
       return res.status(400).json({ error: 'User ID is required' });
     }
 
-    // Check if current user is the leader
     const isLeader = await Project.isLeader(id, req.userId);
     
     if (!isLeader) {
@@ -131,14 +113,12 @@ async function addMember(req, res) {
       });
     }
 
-    // Check if user exists
     const user = await User.findById(userId);
     
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // Add member
     await Project.addMember(id, userId, role || 'MEMBER');
 
     res.json({ 
