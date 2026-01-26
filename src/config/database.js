@@ -1,16 +1,9 @@
-/**
- * MongoDB Database Configuration
- * Handles connection and provides database instance
- */
 
 const { MongoClient } = require('mongodb');
 
 let db = null;
 let client = null;
 
-/**
- * Connect to MongoDB
- */
 async function connectDB() {
   try {
     const uri = process.env.MONGODB_URI || 'mongodb://localhost:27101/collaborative_pm';
@@ -24,8 +17,7 @@ async function connectDB() {
     await client.connect();
     
     db = client.db();
-    
-    // Create indexes for better performance
+
     await createIndexes();
     
     console.log('Database indexes created successfully');
@@ -37,19 +29,14 @@ async function connectDB() {
   }
 }
 
-/**
- * Create database indexes
- */
 async function createIndexes() {
   try {
-    // Users collection indexes
+
     await db.collection('users').createIndex({ email: 1 }, { unique: true });
-    
-    // Projects collection indexes
+  
     await db.collection('projects').createIndex({ leaderId: 1 });
     await db.collection('projects').createIndex({ 'members.userId': 1 });
-    
-    // Tasks collection indexes
+
     await db.collection('tasks').createIndex({ projectId: 1 });
     await db.collection('tasks').createIndex({ assignedTo: 1 });
     await db.collection('tasks').createIndex({ projectId: 1, status: 1 });
@@ -60,9 +47,6 @@ async function createIndexes() {
   }
 }
 
-/**
- * Get database instance
- */
 function getDB() {
   if (!db) {
     throw new Error('Database not initialized. Call connectDB first.');
@@ -70,9 +54,6 @@ function getDB() {
   return db;
 }
 
-/**
- * Close database connection
- */
 async function closeDB() {
   if (client) {
     await client.close();
