@@ -1,15 +1,8 @@
-/**
- * Task Model
- * Handles task data operations
- */
-
 const { ObjectId } = require('mongodb');
 const { getDB } = require('../config/database');
 
 class Task {
-  /**
-   * Create a new task
-   */
+
   static async create(taskData) {
     const db = getDB();
     const { title, description, projectId, createdBy, assignedTo, status } = taskData;
@@ -32,9 +25,6 @@ class Task {
     return { ...task, _id: result.insertedId };
   }
 
-  /**
-   * Find task by ID
-   */
   static async findById(taskId) {
     const db = getDB();
     return await db.collection('tasks').findOne({ 
@@ -42,9 +32,6 @@ class Task {
     });
   }
 
-  /**
-   * Find tasks by project
-   */
   static async findByProjectId(projectId) {
     const db = getDB();
     return await db.collection('tasks').find({ 
@@ -52,9 +39,6 @@ class Task {
     }).sort({ createdAt: -1 }).toArray();
   }
 
-  /**
-   * Update task status
-   */
   static async updateStatus(taskId, status, updatedBy) {
     const db = getDB();
     
@@ -77,13 +61,9 @@ class Task {
     return result.modifiedCount > 0;
   }
 
-  /**
- * Assign task to user
- */
 static async assign(taskId, userId, assignedBy) {
     const db = getDB();
-    
-    // ✅ Handle null assignment (unassign)
+
     const updateData = {
       updatedAt: new Date(),
       assignedBy: new ObjectId(assignedBy)
@@ -103,9 +83,6 @@ static async assign(taskId, userId, assignedBy) {
     return result.modifiedCount > 0;
   }
 
-  /**
-   * Add comment to task
-   */
   static async addComment(taskId, commentData) {
     const db = getDB();
     const { userId, text } = commentData;
@@ -128,9 +105,6 @@ static async assign(taskId, userId, assignedBy) {
     return result.modifiedCount > 0 ? comment : null;
   }
 
-  /**
-   * Add active viewer to task
-   */
   static async addViewer(taskId, userId) {
     const db = getDB();
     
@@ -142,9 +116,6 @@ static async assign(taskId, userId, assignedBy) {
     );
   }
 
-  /**
-   * Remove active viewer from task
-   */
   static async removeViewer(taskId, userId) {
     const db = getDB();
     
@@ -156,9 +127,6 @@ static async assign(taskId, userId, assignedBy) {
     );
   }
 
-  /**
-   * Add active editor to task
-   */
   static async addEditor(taskId, userId) {
     const db = getDB();
     
@@ -170,9 +138,6 @@ static async assign(taskId, userId, assignedBy) {
     );
   }
 
-  /**
-   * Remove active editor from task
-   */
   static async removeEditor(taskId, userId) {
     const db = getDB();
     
@@ -184,9 +149,6 @@ static async assign(taskId, userId, assignedBy) {
     );
   }
 
-  /**
-   * Find tasks assigned to user
-   */
   static async findByAssignedUser(userId) {
     const db = getDB();
     return await db.collection('tasks').find({ 
@@ -194,9 +156,6 @@ static async assign(taskId, userId, assignedBy) {
     }).sort({ createdAt: -1 }).toArray();
   }
 
-  /**
-   * Update task
-   */
   static async update(taskId, updates) {
     const db = getDB();
     
@@ -219,9 +178,6 @@ static async assign(taskId, userId, assignedBy) {
     return result.modifiedCount > 0;
   }
 
-  /**
-   * Delete task
-   */
   static async delete(taskId) {
     const db = getDB();
     const result = await db.collection('tasks').deleteOne({ 
