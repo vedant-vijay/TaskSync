@@ -1,14 +1,10 @@
 const User = require('../models/User');
 const { generateToken } = require('../utils/jwtUtils');
 
-/**
- * Register a new user
- */
 async function register(req, res) {
   try {
     const { email, password, name, role } = req.body;
 
-    // Validation
     if (!email || !password || !name) {
       return res.status(400).json({ 
         error: 'Email, password, and name are required' 
@@ -21,10 +17,8 @@ async function register(req, res) {
       });
     }
 
-    // Create user
     const user = await User.create({ email, password, name, role });
 
-    // Generate token
     const token = generateToken(user._id.toString());
 
     res.status(201).json({
@@ -48,35 +42,28 @@ async function register(req, res) {
   }
 }
 
-/**
- * Login user
- */
 async function login(req, res) {
   try {
     const { email, password } = req.body;
 
-    // Validation
     if (!email || !password) {
       return res.status(400).json({ 
         error: 'Email and password are required' 
       });
     }
 
-    // Find user
     const user = await User.findByEmail(email);
     
     if (!user) {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 
-    // Verify password
     const isValidPassword = await User.verifyPassword(password, user.password);
     
     if (!isValidPassword) {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 
-    // Generate token
     const token = generateToken(user._id.toString());
 
     res.json({
@@ -95,9 +82,6 @@ async function login(req, res) {
   }
 }
 
-/**
- * Get current user profile
- */
 async function getProfile(req, res) {
   try {
     res.json({
