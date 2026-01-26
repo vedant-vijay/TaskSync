@@ -3,9 +3,6 @@ const Project = require('../models/Project');
 const Task = require('../models/Task');
 const User = require('../models/User');
 
-/**
- * Handle JOIN_PROJECT event
- */
 async function handleJoinProject(ws, payload) {
   try {
     const { projectId } = payload;
@@ -18,7 +15,6 @@ async function handleJoinProject(ws, payload) {
       return;
     }
 
-    // Verify project exists and user is a member
     const isMember = await Project.isMember(projectId, ws.userId);
     
     if (!isMember) {
@@ -29,32 +25,28 @@ async function handleJoinProject(ws, payload) {
       return;
     }
 
-    // Add user to project room
     ws.projectIds.add(projectId);
     connectionManager.joinProject(ws.userId, projectId);
 
-    // Get project details
     const project = await Project.findById(projectId);
     const members = await Project.getMembersWithDetails(projectId);
     const tasks = await Task.findByProjectId(projectId);
 
-    // Get online users in project
     const onlineUsers = Array.from(connectionManager.getProjectUsers(projectId));
 
-    // Notify user with project data
     ws.send(JSON.stringify({
       type: 'PROJECT_JOINED',
       payload: {
         projectId,
         project: {
-          _id: project._id.toString(), // ✅ Changed from 'id' to '_id'
+          _id: project._id.toString(), 
           name: project.name,
           description: project.description,
           leaderId: project.leaderId.toString()
         },
         members,
         tasks: tasks.map(t => ({
-          _id: t._id.toString(), // ✅ Changed from 'id' to '_id'
+          _id: t._id.toString(), 
           title: t.title,
           description: t.description,
           projectId: t.projectId.toString(),
@@ -72,13 +64,12 @@ async function handleJoinProject(ws, payload) {
       }
     }));
 
-    // Notify other users in project
     connectionManager.broadcastToProject(projectId, {
       type: 'USER_CONNECTED',
       payload: {
         user: {
-          _id: ws.userId, // ✅ Added for consistency
-          id: ws.userId,  // Keep both for compatibility
+          _id: ws.userId, 
+          id: ws.userId,  
           name: ws.userName
         },
         projectId,
@@ -96,9 +87,6 @@ async function handleJoinProject(ws, payload) {
   }
 }
 
-/**
- * Handle LEAVE_PROJECT event
- */
 async function handleLeaveProject(ws, payload) {
   try {
     const { projectId } = payload;
@@ -107,11 +95,9 @@ async function handleLeaveProject(ws, payload) {
       return;
     }
 
-    // Remove user from project room
     ws.projectIds.delete(projectId);
     connectionManager.leaveProject(ws.userId, projectId);
 
-    // Notify other users
     connectionManager.broadcastToProject(projectId, {
       type: 'USER_DISCONNECTED',
       payload: {
@@ -133,9 +119,6 @@ async function handleLeaveProject(ws, payload) {
   }
 }
 
-/**
- * Handle CREATE_TASK event
- */
 async function handleCreateTask(ws, payload) {
   try {
     const { projectId, title, description, assignedTo, status } = payload;
@@ -148,7 +131,6 @@ async function handleCreateTask(ws, payload) {
       return;
     }
 
-    // Verify user is member
     const isMember = await Project.isMember(projectId, ws.userId);
     if (!isMember) {
       ws.send(JSON.stringify({
@@ -158,7 +140,6 @@ async function handleCreateTask(ws, payload) {
       return;
     }
 
-    // Build task data
     const taskData = {
       title,
       description,
@@ -167,9 +148,8 @@ async function handleCreateTask(ws, payload) {
       status: status || 'TODO'
     };
 
-    // ✅ Only add assignedTo if it's a valid value
     if (assignedTo && typeof assignedTo === 'string' && assignedTo.trim() !== '') {
-      // ✅ Validate it's a valid ObjectId format
+
       if (!/^[0-9a-fA-F]{24}$/.test(assignedTo)) {
         ws.send(JSON.stringify({
           type: 'ERROR',
@@ -182,16 +162,13 @@ async function handleCreateTask(ws, payload) {
 
     console.log('Creating task with data:', taskData);
 
-    // ✅ Create the task - this was missing!
     const task = await Task.create(taskData);
 
-    // ✅ Get assigned user details if task is assigned
     let assignedUser = null;
     if (task.assignedTo) {
       assignedUser = await User.findById(task.assignedTo);
     }
 
-    // Broadcast to all project members
     connectionManager.broadcastToProject(projectId, {
       type: 'TASK_CREATED',
       payload: {
@@ -231,9 +208,6 @@ async function handleCreateTask(ws, payload) {
   }
 }
 
-/**
- * Handle ASSIGN_TASK event
- */
 async function handleAssignTask(ws, payload) {
   try {
     const { taskId, assignedTo, projectId } = payload;
@@ -248,7 +222,6 @@ async function handleAssignTask(ws, payload) {
       return;
     }
 
-    // Get task
     const task = await Task.findById(taskId);
     if (!task) {
       ws.send(JSON.stringify({
@@ -258,7 +231,6 @@ async function handleAssignTask(ws, payload) {
       return;
     }
 
-    // Verify project membership
     const isMember = await Project.isMember(projectId, ws.userId);
     if (!isMember) {
       ws.send(JSON.stringify({
@@ -268,11 +240,7 @@ async function handleAssignTask(ws, payload) {
       return;
     }
 
-    // ✅ Handle unassign case FIRST - check for null, undefined, empty string, or "null" string
     if (!assignedTo || assignedTo === '' || assignedTo === 'null' || assignedTo === 'undefined') {
-      console.log('🔄 Unassigning task:', taskId);
-      
-      // Unassign the task
       await Task.assign(taskId, null, ws.userId);
       
       connectionManager.broadcastToProject(projectId, {
@@ -289,10 +257,9 @@ async function handleAssignTask(ws, payload) {
       });
       
       console.log(`✅ Task ${taskId} unassigned by ${ws.userId}`);
-      return; // ✅ RETURN HERE - don't continue to validation
+      return; 
     }
 
-    // ✅ Validate assignedTo is a valid MongoDB ObjectId format (24 hex characters)
     if (!/^[0-9a-fA-F]{24}$/.test(assignedTo)) {
       console.error('❌ Invalid user ID format:', assignedTo);
       ws.send(JSON.stringify({
@@ -302,7 +269,6 @@ async function handleAssignTask(ws, payload) {
       return;
     }
 
-    // ✅ Verify assignee is a member (only if assigning to someone)
     const assigneeIsMember = await Project.isMember(projectId, assignedTo);
     if (!assigneeIsMember) {
       ws.send(JSON.stringify({
@@ -312,10 +278,8 @@ async function handleAssignTask(ws, payload) {
       return;
     }
 
-    // Assign task
     await Task.assign(taskId, assignedTo, ws.userId);
 
-    // Get assigned user details
     const assignedUser = await User.findById(assignedTo);
 
     if (!assignedUser) {
@@ -326,7 +290,6 @@ async function handleAssignTask(ws, payload) {
       return;
     }
 
-    // Broadcast to all project members
     connectionManager.broadcastToProject(projectId, {
       type: 'TASK_ASSIGNED',
       payload: {
@@ -353,9 +316,6 @@ async function handleAssignTask(ws, payload) {
   }
 }
 
-/**
- * Handle UPDATE_TASK_STATUS event
- */
 async function handleUpdateTaskStatus(ws, payload) {
   try {
     const { taskId, status, projectId } = payload;
@@ -368,7 +328,6 @@ async function handleUpdateTaskStatus(ws, payload) {
       return;
     }
 
-    // Get task
     const task = await Task.findById(taskId);
     if (!task) {
       ws.send(JSON.stringify({
@@ -378,7 +337,6 @@ async function handleUpdateTaskStatus(ws, payload) {
       return;
     }
 
-    // Verify project membership
     const isMember = await Project.isMember(projectId, ws.userId);
     if (!isMember) {
       ws.send(JSON.stringify({
@@ -388,10 +346,8 @@ async function handleUpdateTaskStatus(ws, payload) {
       return;
     }
 
-    // Update status
     await Task.updateStatus(taskId, status, ws.userId);
 
-    // Broadcast to all project members
     connectionManager.broadcastToProject(projectId, {
       type: 'TASK_STATUS_UPDATED',
       payload: {
@@ -415,9 +371,6 @@ async function handleUpdateTaskStatus(ws, payload) {
   }
 }
 
-/**
- * Handle ADD_COMMENT event
- */
 async function handleAddComment(ws, payload) {
   try {
     const { taskId, text, projectId } = payload;
@@ -430,7 +383,6 @@ async function handleAddComment(ws, payload) {
       return;
     }
 
-    // Get task
     const task = await Task.findById(taskId);
     if (!task) {
       ws.send(JSON.stringify({
@@ -440,7 +392,6 @@ async function handleAddComment(ws, payload) {
       return;
     }
 
-    // Verify project membership
     const isMember = await Project.isMember(projectId, ws.userId);
     if (!isMember) {
       ws.send(JSON.stringify({
@@ -450,23 +401,21 @@ async function handleAddComment(ws, payload) {
       return;
     }
 
-    // Add comment
     const comment = await Task.addComment(taskId, {
       userId: ws.userId,
       text
     });
 
-    // Broadcast to all project members
     connectionManager.broadcastToProject(projectId, {
       type: 'TASK_COMMENT_ADDED',
       payload: {
         taskId,
         comment: {
-          _id: comment._id.toString(), // ✅ Changed from 'id' to '_id'
+          _id: comment._id.toString(), 
           user: {
             _id: ws.userId,
             name: ws.userName
-          }, // ✅ Send full user object
+          }, 
           text: comment.text,
           createdAt: comment.createdAt
         },
@@ -484,9 +433,6 @@ async function handleAddComment(ws, payload) {
   }
 }
 
-/**
- * Handle START_VIEWING_TASK event
- */
 async function handleStartViewingTask(ws, payload) {
   try {
     const { taskId, projectId } = payload;
@@ -495,19 +441,17 @@ async function handleStartViewingTask(ws, payload) {
       return;
     }
 
-    // Add viewer
     await Task.addViewer(taskId, ws.userId);
 
-    // Broadcast to all project members
     connectionManager.broadcastToProject(projectId, {
       type: 'TASK_VIEWER_JOINED',
       payload: {
         taskId,
         user: {
           _id: ws.userId,
-          id: ws.userId, // Keep both for compatibility
+          id: ws.userId, 
           name: ws.userName
-        }, // ✅ Send full user object
+        }, 
         timestamp: new Date().toISOString()
       }
     });
@@ -518,9 +462,6 @@ async function handleStartViewingTask(ws, payload) {
   }
 }
 
-/**
- * Handle STOP_VIEWING_TASK event
- */
 async function handleStopViewingTask(ws, payload) {
   try {
     const { taskId, projectId } = payload;
@@ -529,10 +470,8 @@ async function handleStopViewingTask(ws, payload) {
       return;
     }
 
-    // Remove viewer
     await Task.removeViewer(taskId, ws.userId);
 
-    // Broadcast to all project members
     connectionManager.broadcastToProject(projectId, {
       type: 'TASK_VIEWER_LEFT',
       payload: {
@@ -548,9 +487,6 @@ async function handleStopViewingTask(ws, payload) {
   }
 }
 
-/**
- * Handle START_EDITING_TASK event
- */
 async function handleStartEditingTask(ws, payload) {
   try {
     const { taskId, projectId } = payload;
@@ -559,19 +495,17 @@ async function handleStartEditingTask(ws, payload) {
       return;
     }
 
-    // Add editor
     await Task.addEditor(taskId, ws.userId);
 
-    // Broadcast to all project members
     connectionManager.broadcastToProject(projectId, {
       type: 'TASK_EDITOR_JOINED',
       payload: {
         taskId,
         user: {
           _id: ws.userId,
-          id: ws.userId, // Keep both for compatibility
+          id: ws.userId, 
           name: ws.userName
-        }, // ✅ Send full user object
+        }, 
         timestamp: new Date().toISOString()
       }
     });
@@ -582,9 +516,6 @@ async function handleStartEditingTask(ws, payload) {
   }
 }
 
-/**
- * Handle STOP_EDITING_TASK event
- */
 async function handleStopEditingTask(ws, payload) {
   try {
     const { taskId, projectId } = payload;
@@ -593,10 +524,8 @@ async function handleStopEditingTask(ws, payload) {
       return;
     }
 
-    // Remove editor
     await Task.removeEditor(taskId, ws.userId);
 
-    // Broadcast to all project members
     connectionManager.broadcastToProject(projectId, {
       type: 'TASK_EDITOR_LEFT',
       payload: {
@@ -612,7 +541,6 @@ async function handleStopEditingTask(ws, payload) {
   }
 }
 
-// Export event handlers map
 const eventHandlers = {
   JOIN_PROJECT: handleJoinProject,
   LEAVE_PROJECT: handleLeaveProject,
