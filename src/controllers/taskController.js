@@ -2,21 +2,16 @@ const Task = require('../models/Task');
 const Project = require('../models/Project');
 const User = require('../models/User');
 
-/**
- * Create a new task
- */
 async function createTask(req, res) {
   try {
     const { title, description, projectId, assignedTo, status } = req.body;
 
-    // Validation
     if (!title || !projectId) {
       return res.status(400).json({ 
         error: 'Title and project ID are required' 
       });
     }
 
-    // Check if user is a member of the project
     const isMember = await Project.isMember(projectId, req.userId);
     
     if (!isMember) {
@@ -25,7 +20,6 @@ async function createTask(req, res) {
       });
     }
 
-    // If assignedTo is provided, verify user is a member
     if (assignedTo) {
       const assigneeIsMember = await Project.isMember(projectId, assignedTo);
       
@@ -36,7 +30,6 @@ async function createTask(req, res) {
       }
     }
 
-    // Create task
     const task = await Task.create({
       title,
       description,
@@ -65,14 +58,10 @@ async function createTask(req, res) {
   }
 }
 
-/**
- * Get tasks for a project
- */
 async function getProjectTasks(req, res) {
   try {
     const { projectId } = req.params;
 
-    // Check if user is a member
     const isMember = await Project.isMember(projectId, req.userId);
     
     if (!isMember) {
@@ -105,9 +94,6 @@ async function getProjectTasks(req, res) {
   }
 }
 
-/**
- * Get task by ID
- */
 async function getTaskById(req, res) {
   try {
     const { id } = req.params;
@@ -118,7 +104,6 @@ async function getTaskById(req, res) {
       return res.status(404).json({ error: 'Task not found' });
     }
 
-    // Check if user is a member of the project
     const isMember = await Project.isMember(task.projectId.toString(), req.userId);
     
     if (!isMember) {
@@ -154,15 +139,11 @@ async function getTaskById(req, res) {
   }
 }
 
-/**
- * Update task status
- */
 async function updateTaskStatus(req, res) {
   try {
     const { id } = req.params;
     const { status } = req.body;
 
-    // Validation
     if (!status) {
       return res.status(400).json({ error: 'Status is required' });
     }
@@ -173,14 +154,12 @@ async function updateTaskStatus(req, res) {
       return res.status(404).json({ error: 'Task not found' });
     }
 
-    // Check if user is a member
     const isMember = await Project.isMember(task.projectId.toString(), req.userId);
     
     if (!isMember) {
       return res.status(403).json({ error: 'Not authorized' });
     }
 
-    // Update status
     await Task.updateStatus(id, status, req.userId);
 
     res.json({ 
@@ -198,15 +177,11 @@ async function updateTaskStatus(req, res) {
   }
 }
 
-/**
- * Assign task to user
- */
 async function assignTask(req, res) {
   try {
     const { id } = req.params;
     const { assignedTo } = req.body;
 
-    // Validation
     if (!assignedTo) {
       return res.status(400).json({ error: 'User ID is required' });
     }
@@ -217,15 +192,14 @@ async function assignTask(req, res) {
       return res.status(404).json({ error: 'Task not found' });
     }
 
-    // Check if current user is a member
     const isMember = await Project.isMember(task.projectId.toString(), req.userId);
     
     if (!isMember) {
       return res.status(403).json({ error: 'Not authorized' });
     }
-    // In your frontend code where you call assignTask
+
     console.log('🔍 Assigning to:', assignedTo, typeof assignedTo);
-    // Check if assignee is a member
+  
     const assigneeIsMember = await Project.isMember(task.projectId.toString(), assignedTo);
     
     if (!assigneeIsMember) {
@@ -234,7 +208,6 @@ async function assignTask(req, res) {
       });
     }
 
-    // Assign task
     await Task.assign(id, assignedTo, req.userId);
 
     res.json({ 
