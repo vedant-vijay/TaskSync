@@ -1,8 +1,5 @@
 const jwt = require('jsonwebtoken');
 
-/**
- * Generate JWT token
- */
 function generateToken(userId) {
   return jwt.sign(
     { userId },
@@ -11,9 +8,6 @@ function generateToken(userId) {
   );
 }
 
-/**
- * Verify JWT token
- */
 function verifyToken(token) {
   try {
     return jwt.verify(token, process.env.JWT_SECRET);
