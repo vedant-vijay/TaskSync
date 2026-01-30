@@ -1,3 +1,7 @@
+
+// ============================================
+// FILE 2: DashboardPage.jsx
+// ============================================
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus } from 'lucide-react';
@@ -6,41 +10,35 @@ import { ProjectList } from '../components/projects/ProjectList';
 import { CreateProjectModal } from '../components/projects/CreateProjectModal';
 import { useProjects } from '../hooks/useProjects';
 import { useAuth } from '../hooks/useAuth';
+import { useWebSocket } from '../hooks/useWebSocket';
 import { USER_ROLE } from '../utils/constants';
 
 export const DashboardPage = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const { projects, loading: projectsLoading, refetch, error } = useProjects();
   const { user, loading: authLoading } = useAuth();
+  const { connected, authenticated } = useWebSocket();
   const navigate = useNavigate();
-
-  // ✅ EXTENSIVE DEBUGGING
-  console.log('🏠 Dashboard Render');
-  console.log('🏠 Dashboard - Auth Loading:', authLoading);
-  console.log('🏠 Dashboard - Projects Loading:', projectsLoading);
-  console.log('🏠 Dashboard - User:', user);
-  console.log('🏠 Dashboard - Projects:', projects);
-  console.log('🏠 Dashboard - Projects Length:', projects?.length);
-  console.log('🏠 Dashboard - Error:', error);
 
   const handleProjectClick = (projectId) => {
     console.log('🎯 Project clicked - ID:', projectId);
+    console.log('🔍 WebSocket status:', { connected, authenticated });
+    
+    // ✅ Don't navigate if WebSocket not ready
+    if (!connected || !authenticated) {
+      console.warn('⚠️ WebSocket not ready yet, please wait...');
+      return;
+    }
+    
     navigate(`/projects/${projectId}`);
   };
 
   const handleCreateSuccess = () => {
     console.log('✅ Project created, refetching...');
     refetch();
-    
-    // ✅ ADD THIS: Force page reload to refresh WebSocket auth
-    setTimeout(() => {
-      window.location.reload();
-    }, 500);
   };
 
-  // ✅ Show loading for auth
   if (authLoading) {
-    console.log('⏳ Showing auth loading...');
     return (
       <div className="min-h-screen flex items-center justify-center">
         <p className="text-gray-500 text-lg">Loading user...</p>
@@ -48,9 +46,7 @@ export const DashboardPage = () => {
     );
   }
 
-  // ✅ Show error if exists
   if (error) {
-    console.error('❌ Dashboard error:', error);
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -70,15 +66,28 @@ export const DashboardPage = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       <Header title="My Projects" />
+      
+      {/* ✅ WebSocket Status Banner */}
+      {(!connected || !authenticated) && (
+        <div className="max-w-7xl mx-auto px-4 pt-4">
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 flex items-center gap-3">
+            <div className="animate-spin h-5 w-5 border-2 border-yellow-600 border-t-transparent rounded-full"></div>
+            <div>
+              <p className="text-yellow-800 font-medium">
+                {!connected ? 'Connecting to server...' : 'Authenticating...'}
+              </p>
+              <p className="text-yellow-600 text-sm">
+                Please wait a moment before accessing projects
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       <main className="max-w-7xl mx-auto px-4 py-8">
-        {/* ✅ Leader-only Create Project button */}
         {user?.role?.trim().toUpperCase() === USER_ROLE.LEADER && (
           <button
-            onClick={() => {
-              console.log('➕ Opening create project modal');
-              setShowCreateModal(true);
-            }}
+            onClick={() => setShowCreateModal(true)}
             className="mb-6 flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition shadow-md"
           >
             <Plus size={20} />
@@ -86,7 +95,6 @@ export const DashboardPage = () => {
           </button>
         )}
 
-        {/* Project list */}
         <ProjectList
           projects={projects}
           loading={projectsLoading}
@@ -94,16 +102,13 @@ export const DashboardPage = () => {
         />
       </main>
 
-      {/* Create Project Modal */}
       {showCreateModal && (
         <CreateProjectModal
-          onClose={() => {
-            console.log('❌ Closing create project modal');
-            setShowCreateModal(false);
-          }}
+          onClose={() => setShowCreateModal(false)}
           onSuccess={handleCreateSuccess}
         />
       )}
     </div>
   );
 };
+
