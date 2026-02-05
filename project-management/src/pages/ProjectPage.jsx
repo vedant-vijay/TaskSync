@@ -1,7 +1,3 @@
-
-// ============================================
-// FILE 3: ProjectPage.jsx (Already looks good, minor improvements)
-// ============================================
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Plus, UserPlus } from 'lucide-react';
@@ -155,7 +151,6 @@ export const ProjectPage = () => {
         })
       ];
 
-      // ✅ Send JOIN_PROJECT after all subscribers are set up
       send(WS_EVENTS.JOIN_PROJECT, { projectId });
 
       return () => {
