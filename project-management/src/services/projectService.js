@@ -1,10 +1,7 @@
 import api from './api';
 
 export const projectService = {
-  /**
-   * Get all projects for current user (alias for getAll)
-   * @returns {Promise<Object>} Response with projects
-   */
+
   async getProjects() {
     console.log('🔍 projectService.getProjects() called');
     try {
@@ -17,10 +14,6 @@ export const projectService = {
     }
   },
 
-  /**
-   * Get all projects for current user
-   * @returns {Promise<Array>} Array of projects
-   */
   async getAll() {
     try {
       const response = await api.get('/projects');
@@ -30,11 +23,6 @@ export const projectService = {
     }
   },
 
-  /**
-   * Get project by ID (alias for getById)
-   * @param {string} id - Project ID
-   * @returns {Promise<Object>} Project object
-   */
   async getProject(id) {
     console.log('🔍 projectService.getProject() called with id:', id);
     try {
@@ -47,11 +35,6 @@ export const projectService = {
     }
   },
 
-  /**
-   * Get project by ID
-   * @param {string} projectId - Project ID
-   * @returns {Promise<Object>} Project object
-   */
   async getById(projectId) {
     try {
       const response = await api.get(`/projects/${projectId}`);
@@ -61,12 +44,6 @@ export const projectService = {
     }
   },
 
-  /**
-   * Create a new project (alias for create)
-   * @param {string} name - Project name
-   * @param {string} description - Project description
-   * @returns {Promise<Object>} Created project
-   */
   async createProject(name, description) {
     console.log('➕ projectService.createProject() called:', { name, description });
     try {
@@ -79,11 +56,6 @@ export const projectService = {
     }
   },
 
-  /**
-   * Create a new project
-   * @param {Object} projectData - { name, description }
-   * @returns {Promise<Object>} Created project
-   */
   async create(projectData) {
     try {
       const response = await api.post('/projects', projectData);
@@ -93,12 +65,6 @@ export const projectService = {
     }
   },
 
-  /**
-   * Update project
-   * @param {string} projectId - Project ID
-   * @param {Object} updates - { name?, description? }
-   * @returns {Promise<Object>} Updated project
-   */
   async update(projectId, updates) {
     try {
       const response = await api.put(`/projects/${projectId}`, updates);
@@ -108,11 +74,6 @@ export const projectService = {
     }
   },
 
-  /**
-   * Delete project
-   * @param {string} projectId - Project ID
-   * @returns {Promise<Object>} Success message
-   */
   async delete(projectId) {
     try {
       const response = await api.delete(`/projects/${projectId}`);
@@ -122,13 +83,6 @@ export const projectService = {
     }
   },
 
-  /**
-   * Add member to project
-   * @param {string} projectId - Project ID
-   * @param {string} userId - User ID to add
-   * @param {string} role - Role (MEMBER or LEADER)
-   * @returns {Promise<Object>} Success message
-   */
   async addMember(projectId, userId, role = 'MEMBER') {
     console.log('👥 projectService.addMember() called:', { projectId, userId, role });
     try {
@@ -144,11 +98,6 @@ export const projectService = {
     }
   },
 
-  /**
-   * Get project members with details
-   * @param {string} projectId - Project ID
-   * @returns {Promise<Array>} Array of members with user details
-   */
   async getMembers(projectId) {
     try {
       const response = await api.get(`/projects/${projectId}/members`);
@@ -158,12 +107,6 @@ export const projectService = {
     }
   },
 
-  /**
-   * Remove member from project
-   * @param {string} projectId - Project ID
-   * @param {string} userId - User ID to remove
-   * @returns {Promise<Object>} Success message
-   */
   async removeMember(projectId, userId) {
     try {
       const response = await api.delete(`/projects/${projectId}/members/${userId}`);
@@ -173,13 +116,6 @@ export const projectService = {
     }
   },
 
-  /**
-   * Update member role
-   * @param {string} projectId - Project ID
-   * @param {string} userId - User ID
-   * @param {string} role - New role (MEMBER or LEADER)
-   * @returns {Promise<Object>} Success message
-   */
   async updateMemberRole(projectId, userId, role) {
     try {
       const response = await api.put(`/projects/${projectId}/members/${userId}`, {
