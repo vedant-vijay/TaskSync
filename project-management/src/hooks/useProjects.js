@@ -12,7 +12,6 @@ export const useProjects = () => {
 
       const response = await projectService.getProjects();
 
-      // ✅ GUARANTEE ARRAY
       const projectsArray = Array.isArray(response)
         ? response
         : response?.projects || response?.data || [];
