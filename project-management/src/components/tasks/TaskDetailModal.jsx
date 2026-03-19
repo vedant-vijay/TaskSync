@@ -17,6 +17,10 @@ export const TaskDetailModal = ({ task, onClose, projectId, members = [], isLead
   const userId = user?._id || user?.id;
 
   useEffect(() => {
+    setLocalTask(task);
+  }, [task]);
+
+  useEffect(() => {
     if (!taskId) {
       console.error('❌ TaskDetailModal: No task ID found!', task);
       return;

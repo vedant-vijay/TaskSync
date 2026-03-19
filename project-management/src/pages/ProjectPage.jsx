@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Plus, UserPlus } from 'lucide-react';
 import { Header } from '../components/common/Header';
@@ -27,21 +27,29 @@ export const ProjectPage = () => {
   const [showCreateTask, setShowCreateTask] = useState(false);
   const [showAddMember, setShowAddMember] = useState(false);
   const [loading, setLoading] = useState(true);
-  const { send, subscribe, connected } = useWebSocket();
+  const { send, subscribe, connected, authenticated } = useWebSocket();
   const { toasts, addToast, removeToast } = useToast();
   const { user } = useAuth();
+  
+  const hasJoinedRef = useRef(false);
 
-  // Check if current user is a leader
   const isLeader = project && user && (project.leaderId === (user._id || user.id));
 
   useEffect(() => {
-    if (connected && projectId) {
-      console.log('🔌 Connected to WebSocket, joining project:', projectId);
-      send(WS_EVENTS.JOIN_PROJECT, { projectId });
+    console.log('🔄 ProjectPage effect:', { connected, authenticated, projectId, hasJoined: hasJoinedRef.current });
+
+    if (!connected || !authenticated) {
+      console.log('⏳ Waiting for WebSocket...');
+      return;
+    }
+
+    if (projectId && !hasJoinedRef.current) {
+      console.log('✅ Joining project');
+      hasJoinedRef.current = true;
 
       const unsubscribers = [
         subscribe(WS_EVENTS.PROJECT_JOINED, (payload) => {
-          console.log('✅ Project joined:', payload);
+          console.log('✅ Project joined');
           setProject(payload.project);
           setTasks(payload.tasks || []);
           setMembers(payload.members || []);
@@ -50,28 +58,24 @@ export const ProjectPage = () => {
         }),
 
         subscribe(WS_EVENTS.USER_CONNECTED, (payload) => {
-          console.log('👤 User connected:', payload.user);
           setOnlineUsers(prev => {
             const userId = payload.user._id || payload.user.id;
             const filtered = prev.filter(u => (u._id || u.id) !== userId);
             return [...filtered, payload.user];
           });
-          addToast(`${payload.user.name} joined the project`, 'info');
+          addToast(`${payload.user.name} joined`, 'info');
         }),
 
         subscribe(WS_EVENTS.USER_DISCONNECTED, (payload) => {
-          console.log('👋 User disconnected:', payload.userId);
           setOnlineUsers(prev => prev.filter(u => (u._id || u.id) !== payload.userId));
         }),
 
         subscribe(WS_EVENTS.TASK_CREATED, (payload) => {
-          console.log('🎯 Task created:', payload.task);
           setTasks(prev => [...prev, payload.task]);
           addToast('New task created', 'success');
         }),
 
         subscribe(WS_EVENTS.TASK_STATUS_UPDATED, (payload) => {
-          console.log('📊 Task status updated:', payload);
           setTasks(prev => prev.map(t => {
             const taskId = t._id || t.id;
             return taskId === payload.taskId ? { ...t, status: payload.status } : t;
@@ -79,7 +83,6 @@ export const ProjectPage = () => {
         }),
 
         subscribe(WS_EVENTS.TASK_ASSIGNED, (payload) => {
-          console.log('👥 Task assigned:', payload);
           setTasks(prev => prev.map(t => {
             const taskId = t._id || t.id;
             return taskId === payload.taskId ? { ...t, assignedTo: payload.assignedTo } : t;
@@ -87,17 +90,20 @@ export const ProjectPage = () => {
         }),
 
         subscribe(WS_EVENTS.TASK_COMMENT_ADDED, (payload) => {
-          console.log('💬 Comment added:', payload);
           setTasks(prev => prev.map(t => {
             const taskId = t._id || t.id;
-            return taskId === payload.taskId
-              ? { ...t, commentCount: (t.commentCount || 0) + 1 }
-              : t;
+            if (taskId === payload.taskId) {
+              return { 
+                ...t, 
+                comments: [...(t.comments || []), payload.comment],
+                commentCount: (t.commentCount || 0) + 1 
+              };
+            }
+            return t;
           }));
         }),
 
         subscribe(WS_EVENTS.TASK_VIEWER_JOINED, (payload) => {
-          console.log('👁️ Viewer joined:', payload);
           setViewers(prev => ({
             ...prev,
             [payload.taskId]: [
@@ -108,7 +114,6 @@ export const ProjectPage = () => {
         }),
 
         subscribe(WS_EVENTS.TASK_VIEWER_LEFT, (payload) => {
-          console.log('👁️ Viewer left:', payload);
           setViewers(prev => ({
             ...prev,
             [payload.taskId]: (prev[payload.taskId] || []).filter(u => (u._id || u.id) !== payload.userId)
@@ -116,7 +121,6 @@ export const ProjectPage = () => {
         }),
 
         subscribe(WS_EVENTS.TASK_EDITOR_JOINED, (payload) => {
-          console.log('✏️ Editor joined:', payload);
           setEditors(prev => ({
             ...prev,
             [payload.taskId]: [
@@ -127,7 +131,6 @@ export const ProjectPage = () => {
         }),
 
         subscribe(WS_EVENTS.TASK_EDITOR_LEFT, (payload) => {
-          console.log('✏️ Editor left:', payload);
           setEditors(prev => ({
             ...prev,
             [payload.taskId]: (prev[payload.taskId] || []).filter(u => (u._id || u.id) !== payload.userId)
@@ -136,17 +139,28 @@ export const ProjectPage = () => {
 
         subscribe(WS_EVENTS.ERROR, (payload) => {
           console.error('❌ WebSocket error:', payload);
+          setLoading(false);
+          
+          if (payload.message?.toLowerCase().includes('not a member')) {
+            addToast('You are not a member of this project', 'error');
+            setTimeout(() => navigate('/dashboard'), 2000);
+            return;
+          }
+          
           addToast(payload.message || 'An error occurred', 'error');
         })
       ];
 
+      send(WS_EVENTS.JOIN_PROJECT, { projectId });
+
       return () => {
-        console.log('🚪 Leaving project:', projectId);
+        console.log('🧹 Cleanup');
+        hasJoinedRef.current = false;
         send(WS_EVENTS.LEAVE_PROJECT, { projectId });
         unsubscribers.forEach(unsub => unsub());
       };
     }
-  }, [connected, projectId, send, subscribe, addToast]);
+  }, [connected, authenticated, projectId, send, subscribe, navigate, addToast]);
 
   const selectedTask = selectedTaskId 
     ? tasks.find(t => (t._id || t.id) === selectedTaskId) 
@@ -154,27 +168,42 @@ export const ProjectPage = () => {
 
   const handleMemberAdded = () => {
     addToast('Member added successfully', 'success');
-    // Re-join project to get updated member list
     send(WS_EVENTS.LEAVE_PROJECT, { projectId });
+    hasJoinedRef.current = false;
     setTimeout(() => {
       send(WS_EVENTS.JOIN_PROJECT, { projectId });
+      hasJoinedRef.current = true;
     }, 100);
   };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <LoadingSpinner size="lg" />
-      </div>
-    );
-  }
 
   if (!connected) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <p className="text-gray-600 mb-2">Connecting to server...</p>
           <LoadingSpinner size="md" />
+          <p className="text-gray-600 mt-2">Connecting to server...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!authenticated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <LoadingSpinner size="md" />
+          <p className="text-gray-600 mt-2">Authenticating...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <LoadingSpinner size="lg" />
+          <p className="text-gray-600 mt-4">Loading project...</p>
         </div>
       </div>
     );
@@ -208,7 +237,6 @@ export const ProjectPage = () => {
                 Create Task
               </button>
 
-              {/* ✅ Add Member button - Only for leaders */}
               {isLeader && (
                 <button
                   onClick={() => setShowAddMember(true)}
@@ -236,7 +264,7 @@ export const ProjectPage = () => {
           onClose={() => setSelectedTaskId(null)}
           projectId={projectId}
           members={members}
-          isLeader={isLeader} // ✅ Pass isLeader prop
+          isLeader={isLeader}
         />
       )}
 
@@ -245,9 +273,6 @@ export const ProjectPage = () => {
           onClose={() => setShowCreateTask(false)}
           projectId={projectId}
           members={members}
-          onSuccess={() => {
-            console.log('✅ Task creation acknowledged');
-          }}
         />
       )}
 

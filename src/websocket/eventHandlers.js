@@ -6,7 +6,6 @@ const User = require('../models/User');
 async function handleJoinProject(ws, payload) {
   try {
     const { projectId } = payload;
-
     if (!projectId) {
       ws.send(JSON.stringify({
         type: 'ERROR',
@@ -16,7 +15,6 @@ async function handleJoinProject(ws, payload) {
     }
 
     const isMember = await Project.isMember(projectId, ws.userId);
-    
     if (!isMember) {
       ws.send(JSON.stringify({
         type: 'ERROR',
@@ -31,7 +29,52 @@ async function handleJoinProject(ws, payload) {
     const project = await Project.findById(projectId);
     const members = await Project.getMembersWithDetails(projectId);
     const tasks = await Task.findByProjectId(projectId);
+    
+    // ✅ FIX: Get online users with full details
+    const onlineUserIds = Array.from(connectionManager.getProjectUsers(projectId));
+    const onlineUsers = await Promise.all(
+      onlineUserIds.map(async (userId) => {
+        const user = await User.findById(userId);
+        return user ? {
+          _id: user._id.toString(),
+          id: user._id.toString(),
+          name: user.name,
+          email: user.email
+        } : null;
+      })
+    );
+    const validOnlineUsers = onlineUsers.filter(u => u !== null);
 
+    // ✅ FIX: Include full assignedTo details and comments in tasks
+    const tasksWithDetails = await Promise.all(tasks.map(async (t) => {
+      let assignedToUser = null;
+      if (t.assignedTo) {
+        const user = await User.findById(t.assignedTo);
+        if (user) {
+          assignedToUser = {
+            _id: user._id.toString(),
+            id: user._id.toString(),
+            name: user.name
+          };
+        }
+      }
+
+      return {
+        _id: t._id.toString(), 
+        title: t.title,
+        description: t.description,
+        projectId: t.projectId.toString(),
+        createdBy: t.createdBy.toString(),
+        assignedTo: assignedToUser,
+        status: t.status,
+        comments: t.comments || [],
+        commentCount: t.comments?.length || 0,
+        activeViewers: t.activeViewers?.map(v => v.toString()) || [],
+        activeEditors: t.activeEditors?.map(e => e.toString()) || [],
+        createdAt: t.createdAt,
+        updatedAt: t.updatedAt
+      };
+    }));
     const onlineUsers = Array.from(connectionManager.getProjectUsers(projectId));
 
     ws.send(JSON.stringify({
@@ -45,6 +88,8 @@ async function handleJoinProject(ws, payload) {
           leaderId: project.leaderId.toString()
         },
         members,
+        tasks: tasksWithDetails,
+        onlineUsers: validOnlineUsers,
         tasks: tasks.map(t => ({
           _id: t._id.toString(), 
           title: t.title,
@@ -77,7 +122,6 @@ async function handleJoinProject(ws, payload) {
       }
     }, ws.userId);
 
-    console.log(`User ${ws.userId} joined project ${projectId}`);
   } catch (error) {
     console.error('Error in handleJoinProject:', error);
     ws.send(JSON.stringify({
@@ -113,7 +157,6 @@ async function handleLeaveProject(ws, payload) {
       payload: { projectId }
     }));
 
-    console.log(`User ${ws.userId} left project ${projectId}`);
   } catch (error) {
     console.error('Error in handleLeaveProject:', error);
   }
@@ -198,7 +241,6 @@ async function handleCreateTask(ws, payload) {
       }
     });
 
-    console.log(`✅ Task created in project ${projectId} by user ${ws.userId}`);
   } catch (error) {
     console.error('❌ Error in handleCreateTask:', error);
     ws.send(JSON.stringify({
@@ -211,8 +253,6 @@ async function handleCreateTask(ws, payload) {
 async function handleAssignTask(ws, payload) {
   try {
     const { taskId, assignedTo, projectId } = payload;
-
-    console.log('📋 Assign task request:', { taskId, assignedTo, projectId });
 
     if (!taskId || !projectId) {
       ws.send(JSON.stringify({
@@ -241,6 +281,7 @@ async function handleAssignTask(ws, payload) {
     }
 
     if (!assignedTo || assignedTo === '' || assignedTo === 'null' || assignedTo === 'undefined') {
+
       await Task.assign(taskId, null, ws.userId);
       
       connectionManager.broadcastToProject(projectId, {
@@ -255,6 +296,9 @@ async function handleAssignTask(ws, payload) {
           timestamp: new Date().toISOString()
         }
       });
+      console.log('✅ Task unassigned, broadcasted to project');  // ✅ Add this log
+     
+      return;
       
       console.log(`✅ Task ${taskId} unassigned by ${ws.userId}`);
       return; 
@@ -306,7 +350,6 @@ async function handleAssignTask(ws, payload) {
       }
     });
 
-    console.log(`✅ Task ${taskId} assigned to ${assignedTo} by ${ws.userId}`);
   } catch (error) {
     console.error('❌ Error in handleAssignTask:', error);
     ws.send(JSON.stringify({
@@ -361,7 +404,6 @@ async function handleUpdateTaskStatus(ws, payload) {
       }
     });
 
-    console.log(`Task ${taskId} status updated to ${status} by ${ws.userId}`);
   } catch (error) {
     console.error('Error in handleUpdateTaskStatus:', error);
     ws.send(JSON.stringify({
@@ -423,7 +465,6 @@ async function handleAddComment(ws, payload) {
       }
     });
 
-    console.log(`Comment added to task ${taskId} by ${ws.userId}`);
   } catch (error) {
     console.error('Error in handleAddComment:', error);
     ws.send(JSON.stringify({
@@ -451,12 +492,12 @@ async function handleStartViewingTask(ws, payload) {
           _id: ws.userId,
           id: ws.userId, 
           name: ws.userName
+        },
         }, 
         timestamp: new Date().toISOString()
       }
     });
 
-    console.log(`User ${ws.userId} started viewing task ${taskId}`);
   } catch (error) {
     console.error('Error in handleStartViewingTask:', error);
   }
@@ -481,7 +522,6 @@ async function handleStopViewingTask(ws, payload) {
       }
     });
 
-    console.log(`User ${ws.userId} stopped viewing task ${taskId}`);
   } catch (error) {
     console.error('Error in handleStopViewingTask:', error);
   }
@@ -510,7 +550,6 @@ async function handleStartEditingTask(ws, payload) {
       }
     });
 
-    console.log(`User ${ws.userId} started editing task ${taskId}`);
   } catch (error) {
     console.error('Error in handleStartEditingTask:', error);
   }
@@ -535,7 +574,6 @@ async function handleStopEditingTask(ws, payload) {
       }
     });
 
-    console.log(`User ${ws.userId} stopped editing task ${taskId}`);
   } catch (error) {
     console.error('Error in handleStopEditingTask:', error);
   }

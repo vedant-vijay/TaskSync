@@ -1,32 +1,77 @@
-import React from 'react';
-import { Users } from 'lucide-react';
-import { OnlineIndicator } from './OnlineIndicator';
-import { USER_ROLE } from '../../utils/constants';
+// ============================================
+// Sidebar.jsx - Make sure online status is displayed correctly
+// ============================================
 
-export const Sidebar = ({ members, onlineUsers }) => {
+import React from 'react';
+
+export const Sidebar = ({ members = [], onlineUsers = [] }) => {
+  console.log('🔍 Sidebar render');
+  console.log('🔍 Members:', members);
+  console.log('🔍 Online users:', onlineUsers);
+
+  if (!Array.isArray(members) || members.length === 0) {
+    return (
+      <aside className="w-64 bg-white rounded-lg shadow-md p-4">
+        <h3 className="font-semibold text-gray-900 mb-4">Team Members</h3>
+        <p className="text-gray-500 text-sm">No members</p>
+      </aside>
+    );
+  }
+
   return (
-    <aside className="w-64 bg-white rounded-lg shadow p-4">
-      <div className="flex items-center gap-2 mb-4">
-        <Users size={20} className="text-gray-600" />
-        <h3 className="font-semibold text-gray-900">Team Members</h3>
-        <span className="text-sm text-gray-500">({members.length})</span>
-      </div>
+    <aside className="w-64 bg-white rounded-lg shadow-md p-4">
+      <h3 className="font-semibold text-gray-900 mb-4">
+        Team Members ({members.length})
+      </h3>
       
-      <div className="space-y-2">
+      <div className="space-y-3">
         {members.map(member => {
-          const isOnline = onlineUsers.some(u => u.id === member.id);
+          const memberId = member._id || member.id || member.userId;
+          
+          // Check if this member is online
+          const isOnline = onlineUsers.some(onlineUser => {
+            const onlineUserId = onlineUser._id || onlineUser.id;
+            const match = onlineUserId === memberId;
+            
+            if (match) {
+              console.log(`✅ ${member.name} is ONLINE`);
+            }
+            
+            return match;
+          });
+
           return (
-            <div key={member.id} className="flex items-center gap-2 py-2">
-              <OnlineIndicator isOnline={isOnline} />
-              <span className="text-sm text-gray-700 flex-1">{member.name}</span>
-              {member.role === USER_ROLE.LEADER && (
-                <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded">
-                  Leader
-                </span>
-              )}
+            <div 
+              key={memberId} 
+              className="flex items-center gap-3 p-2 rounded hover:bg-gray-50"
+            >
+              {/* Online indicator */}
+              <div 
+                className={`w-3 h-3 rounded-full flex-shrink-0 ${
+                  isOnline ? 'bg-green-500' : 'bg-gray-300'
+                }`}
+                title={isOnline ? 'Online' : 'Offline'}
+              />
+              
+              {/* Member info */}
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-900 truncate">
+                  {member.name}
+                </p>
+                <p className="text-xs text-gray-500 truncate">
+                  {member.email || member.role || 'Member'}
+                </p>
+              </div>
             </div>
           );
         })}
+      </div>
+      
+      {/* Debug info */}
+      <div className="mt-4 pt-4 border-t border-gray-200">
+        <p className="text-xs text-gray-500">
+          Online: {onlineUsers.length} / {members.length}
+        </p>
       </div>
     </aside>
   );
