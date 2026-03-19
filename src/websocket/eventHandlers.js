@@ -75,6 +75,7 @@ async function handleJoinProject(ws, payload) {
         updatedAt: t.updatedAt
       };
     }));
+    const onlineUsers = Array.from(connectionManager.getProjectUsers(projectId));
 
     ws.send(JSON.stringify({
       type: 'PROJECT_JOINED',
@@ -89,6 +90,21 @@ async function handleJoinProject(ws, payload) {
         members,
         tasks: tasksWithDetails,
         onlineUsers: validOnlineUsers,
+        tasks: tasks.map(t => ({
+          _id: t._id.toString(), 
+          title: t.title,
+          description: t.description,
+          projectId: t.projectId.toString(),
+          createdBy: t.createdBy.toString(),
+          assignedTo: t.assignedTo?.toString(),
+          status: t.status,
+          commentCount: t.comments?.length || 0,
+          activeViewers: t.activeViewers?.map(v => v.toString()) || [],
+          activeEditors: t.activeEditors?.map(e => e.toString()) || [],
+          createdAt: t.createdAt,
+          updatedAt: t.updatedAt
+        })),
+        onlineUsers,
         timestamp: new Date().toISOString()
       }
     }));
@@ -187,6 +203,8 @@ async function handleCreateTask(ws, payload) {
       taskData.assignedTo = assignedTo;
     }
 
+    console.log('Creating task with data:', taskData);
+
     const task = await Task.create(taskData);
 
     let assignedUser = null;
@@ -281,6 +299,9 @@ async function handleAssignTask(ws, payload) {
       console.log('✅ Task unassigned, broadcasted to project');  // ✅ Add this log
      
       return;
+      
+      console.log(`✅ Task ${taskId} unassigned by ${ws.userId}`);
+      return; 
     }
 
     if (!/^[0-9a-fA-F]{24}$/.test(assignedTo)) {
@@ -472,6 +493,7 @@ async function handleStartViewingTask(ws, payload) {
           id: ws.userId, 
           name: ws.userName
         },
+        }, 
         timestamp: new Date().toISOString()
       }
     });

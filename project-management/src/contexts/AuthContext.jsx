@@ -1,8 +1,7 @@
-// src/contexts/AuthContext.jsx
+
 import React, { createContext, useState, useEffect } from 'react';
 import { authService } from '../services/authService';
 
-// ✅ Named export only
 export const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {

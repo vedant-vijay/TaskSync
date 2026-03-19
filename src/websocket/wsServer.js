@@ -11,7 +11,6 @@ function initializeWebSocketServer(port) {
 
   wss.on('connection', handleConnection);
 
-  // Start heartbeat
   setupHeartbeat();
 
   console.log(`WebSocket server initialized on port ${port}`);
@@ -19,24 +18,18 @@ function initializeWebSocketServer(port) {
   return wss;
 }
 
-/**
- * Handle new WebSocket connection
- */
 function handleConnection(ws, req) {
   console.log('New WebSocket connection attempt');
 
-  // Connection is not authenticated yet
   ws.isAuthenticated = false;
   ws.userId = null;
   ws.projectIds = new Set();
 
-  // Set ping interval to keep connection alive
   ws.isAlive = true;
   ws.on('pong', () => {
     ws.isAlive = true;
   });
 
-  // Handle incoming messages
   ws.on('message', async (data) => {
     try {
       const message = JSON.parse(data.toString());
@@ -53,17 +46,14 @@ function handleConnection(ws, req) {
     }
   });
 
-  // Handle connection close
   ws.on('close', () => {
     handleDisconnection(ws);
   });
 
-  // Handle errors
   ws.on('error', (error) => {
     console.error('WebSocket error:', error);
   });
 
-  // Send connection established message
   ws.send(JSON.stringify({
     type: 'CONNECTION_ESTABLISHED',
     payload: {
@@ -73,14 +63,10 @@ function handleConnection(ws, req) {
   }));
 }
 
-/**
- * Handle WebSocket disconnection
- */
 function handleDisconnection(ws) {
   if (ws.isAuthenticated && ws.userId) {
     console.log(`User ${ws.userId} disconnected`);
 
-    // Notify all projects about user disconnection
     ws.projectIds.forEach(projectId => {
       connectionManager.broadcastToProject(projectId, {
         type: 'USER_DISCONNECTED',
@@ -93,14 +79,10 @@ function handleDisconnection(ws) {
       }, ws.userId);
     });
 
-    // Remove connection from manager
     connectionManager.removeConnection(ws.userId);
   }
 }
 
-/**
- * Setup periodic ping to keep connections alive
- */
 function setupHeartbeat() {
   const interval = setInterval(() => {
     if (!wss) return;
@@ -113,7 +95,7 @@ function setupHeartbeat() {
       ws.isAlive = false;
       ws.ping();
     });
-  }, 30000); // 30 seconds
+  }, 30000); 
 
   if (wss) {
     wss.on('close', () => {
@@ -122,9 +104,6 @@ function setupHeartbeat() {
   }
 }
 
-/**
- * Get WebSocket server instance
- */
 function getWSS() {
   return wss;
 }

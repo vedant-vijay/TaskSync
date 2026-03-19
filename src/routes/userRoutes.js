@@ -3,10 +3,6 @@ const router = express.Router();
 const { authenticate } = require('../middleware/authMiddleware');
 const User = require('../models/User');
 
-/**
- * Search user by email
- * GET /api/users/search?email=xxx
- */
 router.get('/search', authenticate, async (req, res) => {
   try {
     const { email } = req.query;
@@ -21,7 +17,6 @@ router.get('/search', authenticate, async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // Return user without password
     res.json({
       _id: user._id.toString(),
       name: user.name,
@@ -34,10 +29,6 @@ router.get('/search', authenticate, async (req, res) => {
   }
 });
 
-/**
- * Get current user
- * GET /api/users/me
- */
 router.get('/me', authenticate, async (req, res) => {
   try {
     const user = await User.findById(req.userId);

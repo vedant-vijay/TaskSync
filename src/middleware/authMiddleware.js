@@ -1,9 +1,6 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
-/**
- * Verify JWT token and authenticate user
- */
 async function authenticate(req, res, next) {
   try {
     const authHeader = req.headers.authorization;
@@ -15,11 +12,9 @@ async function authenticate(req, res, next) {
     }
 
     const token = authHeader.substring(7);
-    
-    // Verify token
+
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    
-    // Get user from database
+
     const user = await User.findById(decoded.userId);
     
     if (!user) {
@@ -28,7 +23,6 @@ async function authenticate(req, res, next) {
       });
     }
 
-    // Attach user to request
     req.user = User.sanitizeUser(user);
     req.userId = user._id.toString();
     
@@ -46,9 +40,6 @@ async function authenticate(req, res, next) {
   }
 }
 
-/**
- * Check if user has required role
- */
 function requireRole(...roles) {
   return (req, res, next) => {
     if (!req.user) {

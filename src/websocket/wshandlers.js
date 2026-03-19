@@ -5,20 +5,14 @@ const { connectionManager } = require('./connectionManager');
 const { eventHandlers } = require('./eventHandlers');
 const User = require('../models/User');
 
-/**
- * Main WebSocket message handler
- * Routes messages to appropriate handlers based on type
- */
 async function handleWebSocketMessage(ws, message) {
   const { type, payload } = message;
 
-  // Authentication must happen first
   if (type === 'AUTHENTICATE') {
     await handleAuthentication(ws, payload);
     return;
   }
 
-  // All other messages require authentication
   if (!ws.isAuthenticated) {
     ws.send(JSON.stringify({
       type: 'ERROR',
@@ -30,7 +24,6 @@ async function handleWebSocketMessage(ws, message) {
     return;
   }
 
-  // Route to appropriate handler
   const handler = eventHandlers[type];
   
   if (handler) {
@@ -45,9 +38,6 @@ async function handleWebSocketMessage(ws, message) {
   }
 }
 
-/**
- * Handle WebSocket authentication
- */
 async function handleAuthentication(ws, payload) {
   try {
     const { token } = payload;
@@ -60,7 +50,6 @@ async function handleAuthentication(ws, payload) {
       return;
     }
 
-    // Verify token
     const decoded = verifyToken(token);
     
     if (!decoded) {
@@ -71,7 +60,6 @@ async function handleAuthentication(ws, payload) {
       return;
     }
 
-    // Get user from database
     const user = await User.findById(decoded.userId);
     
     if (!user) {
@@ -82,16 +70,13 @@ async function handleAuthentication(ws, payload) {
       return;
     }
 
-    // Mark connection as authenticated
     ws.isAuthenticated = true;
     ws.userId = user._id.toString();
     ws.userRole = user.role;
     ws.userName = user.name;
 
-    // Add connection to manager
     connectionManager.addConnection(ws.userId, ws);
 
-    // Send success response
     ws.send(JSON.stringify({
       type: 'AUTHENTICATED',
       payload: {
